@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporaire AdminDashbord</title>
+    <style>
+        body{
+           display: flex;
+           justify-content: center;
+            align-items: center;
+           height: 100vh;
+           background: #dcdcdc;
+        }
+        .update-box{
+            padding: 10px;
+            background: #fff;
+            border: 1px solid #dedede;
+            border-radius: 10px;
+            max-width: 300px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: space-between;
+        }
+
+        .update-box span{
+            font-weight: bold;
+            font-family: sans-serif;
+            color:#464646;
+        }
+
+        .update-box button{
+            background: #44a1ff;
+            border-radius: 3px;
+            color: #fff;
+            font-weight: 500;
+            padding: 5px;
+            border:none;
+        }
+
+        .update-box button:hover{
+            background: #3987d4;
+        }
+    </style>
+</head>
+<body>
+    <div class="update-box">
+        <span>Mise A Jour de l'Api Offline</span>
+        <button id="updateBtn">UPDATE</button>
+    </div>
+
+
+    <script>
+        const onlineApiUrl="http://localhost:9001/api.online.hubstream.com"
+        const baseUrl="http://localhost:9002/api.hubstream.com"
+
+
+        function postToServer(url,item){
+            return new Promise((resolve,reject)=>{
+                let xhr = new XMLHttpRequest();
+
+                xhr.open("POST",url,true);
+                xhr.setRequestHeader('Content-Type','application/json')
+                xhr.onload = function (){
+                xhr.status === 200 ? resolve(JSON.parse(xhr.responseText)):
+                reject(new Error("une erreur inconnue est survenue"));
+                }
+                xhr.send(JSON.stringify(item));
+            })
+        }
+        let updateBtn = document.querySelector("#updateBtn")
+
+        updateBtn.addEventListener("click",function(){
+
+            fetch(`${onlineApiUrl}/plans`)
+            .then(res=>res.json())
+            .then(plansContainer=>{
+                console.log(plansContainer.plansAll)
+                            postToServer(`${baseUrl}/plans/online`,plansContainer.plansAll)
+                            .then(obj=>{
+                                if(obj.status){
+                                    console.log("Update effectuer !")
+
+                                                           
+
+                                } else
+                                alert("Une Erreur inconnue est survenue !")
+
+                            })
+            })
+
+            
+
+            fetch(`${onlineApiUrl}/comptes`)
+            .then(res=>res.json())
+            .then(comptes=>{
+                console.log(comptes)
+                            postToServer(`${baseUrl}/comptes/online`,comptes)
+                            .then(obj=>{
+                                if(obj.status)
+                                console.log("Update effectuer !")
+                                else
+                                console.log("Une Erreur inconnue est survenue !")
+
+                            })
+            })
+
+
+            // fetch(`${onlineApiUrl}/activerPlans`)
+            // .then(res=>res.json())
+            // .then(activerPlans=>{
+            //     console.log(activerPlans)
+            //             postToServer(`${baseUrl}/activerPlans/online`,activerPlans)
+            //             .then(obj=>{
+            //             if(obj.status){
+            //                     console.log("Update effectuer !")
+                                                                                                
+            //             } else
+            //                     console.log("Une Erreur inconnue est survenue !")
+            //             })
+            // })
+
+            
+        })
+    </script>
+</body>
+</html>
