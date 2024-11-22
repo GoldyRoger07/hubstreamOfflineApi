@@ -25,9 +25,6 @@ public class SaisonService {
     @Autowired
     private EpisodeService episodeService;
 
-    @Autowired
-    ParametresFileService parametresFileService;
-
 
     public Optional<Saison> getSaison(final int idSaison){
         return saisonRepository.findById(idSaison);
@@ -35,6 +32,14 @@ public class SaisonService {
 
     public List<Saison> getSaisons(){
         return saisonRepository.findAll();
+    }
+
+    public List<Saison> getSaisons(Serie serie){
+        return saisonRepository.findAllBySerie(serie);
+    }
+
+    public List<Saison> getSaisons(Anime anime){
+        return saisonRepository.findAllByAnime(anime);
     }
 
     public void deleteSaison(final int idSaison){
@@ -47,12 +52,15 @@ public class SaisonService {
     }
 
     public void saveSaison(String name,Serie serie,Anime anime){
-       
+      
         if(serie!=null){
+           
             if(!exist(name,serie,null)){
+                
                 Saison saison = new Saison();
                 saison.setTitre(name);
                 saison.setNumero(getNumberFromString(name));
+                
                 saison.setSerie(serie);   
                 save(saison);
             }
@@ -62,7 +70,7 @@ public class SaisonService {
             if(!exist(name,null,anime)){
                 Saison saison = new Saison();
                 saison.setTitre(name);
-                 saison.setNumero(getNumberFromString(name));
+                saison.setNumero(getNumberFromString(name));
                 saison.setAnime(anime);  
                 save(saison);
             }
@@ -91,17 +99,18 @@ public class SaisonService {
         return 0;
     }
 
+   
     public boolean exist(String name,Serie serie,Anime anime){
-        
+       
         if(serie!=null){
-            for(Saison s: serie.getSaisons()){
+            for(Saison s: getSaisons(serie)){
                 if(s.getTitre().equals(name))
                 return true;
             }
         }
 
         if(anime!=null){   
-            for(Saison s: anime.getSaisons()){
+            for(Saison s: getSaisons(anime)){
                 if(s.getTitre().equals(name))
                      return true;
                                   

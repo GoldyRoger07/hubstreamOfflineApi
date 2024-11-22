@@ -1,7 +1,9 @@
 package com.hubstream.api.service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,21 @@ public class FilmService {
 
     @Autowired
     ParametresFileService parametresFileService;
+
+    @Autowired
+    ConfigurationService configurationService;
+
+    @Autowired
+    StreamFileService streamFileService;
+
+    String chemin = "";
+
+    @SuppressWarnings("unchecked")
+    public void initPath(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> parametresFileConfig =(HashMap<String,Object>) config.get("parametresFile");
+        chemin = (String) parametresFileConfig.get("folderFilms");
+    }
 
     public Optional<Film> getFilm(final int idFilm) {
         return filmRepository.findById(idFilm);
@@ -63,59 +80,51 @@ public class FilmService {
     }
 
     public void saveFilm(String name) {
-        String chemin = parametresFileService.getParametresFiles().get(0).getFolderFilms();
-        String cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
+        initPath();
         if (!isExist(name)) {
             Film film = new Film();
+            
+            String imageName = parametresFileService.getImageNameFromFile(chemin, name);
+            String fichierVideoName = parametresFileService.getVideoNameFromFile(chemin, name);
             StreamFile imageCover = new StreamFile();
             StreamFile fichierVideo = new StreamFile();
+             
+            imageCover = streamFileService.getStreamFileUpdated(
+                name,imageName, "image", "film", imageCover);
+            
+            fichierVideo = streamFileService.getStreamFileUpdated(
+                name,fichierVideoName, "video", "film", fichierVideo);
 
-            List<String> liste = parametresFileService.getFilesName(cheminRacine + chemin + "/" + name);
-            List<String> extensionImages = new ArrayList<>();
-
-            extensionImages.add("jpg");
-            extensionImages.add("jpeg");
-            extensionImages.add("png");
-            extensionImages.add("webp");
-
-            List<String> extensionVideos = new ArrayList<>();
-            extensionVideos.add("mp4");
-            extensionVideos.add("webm");
-
-            String imageName = parametresFileService.getFileNameByExtension(liste, extensionImages);
-            String fichierVideoName = parametresFileService.getFileNameByExtension(liste, extensionVideos);
-
-            imageCover.setName(imageName);
-            imageCover.setType("image");
-
-            imageCover.setFilePath(chemin + "/" + name + "/" + imageName);
-
-            fichierVideo.setName(fichierVideoName);
-            fichierVideo.setType("video");
-            fichierVideo.setFilePath(chemin + "/" + name + "/" + fichierVideoName);
+            film.setFichierVideo(fichierVideo);
+            film.setImageCover(imageCover);
 
             film.setTitre(name);
             film.setImageCover(imageCover);
             film.setFichierVideo(fichierVideo);
-            film.setDescriptionFilm("description");
+            film.setDescriptionFilm("");
             film.setAnnee(2000);
-            film.setGenre("Genre");
-            film.setPays("Pays");
-            film.setRealisateur("Realisateur");
-            film.setCast("Cast");
-            film.setTemps("temps");
+            film.setGenre("");
+            film.setPays("");
+            film.setRealisateur("");
+            film.setCast("");
+            film.setTemps("");
             film.setCode(AdminService.generateRandomString(16));
-            save(film);
+            
+            List<Film> films = configurationService.getFilmsFromJson();
+
+            film = save(film);
+
+            films.add(film);
+
+            configurationService.setFilmsToJson(films);
+
         }
 
     }
 
     public void updateFilms() {
-        String chemin = parametresFileService.getParametresFiles().get(0).getFolderFilms();
-        String cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-        System.out.println(cheminRacine+chemin);
-        for (String name : parametresFileService.getFoldersName(cheminRacine + chemin)) {
+        initPath();
+        for (String name : parametresFileService.getFoldersName(chemin)) {
             saveFilm(name);
         }
     }
@@ -130,10 +139,8 @@ public class FilmService {
     }
 
     public boolean isExistInLocal(String name){
-        String chemin = parametresFileService.getParametresFiles().get(0).getFolderFilms();
-        String cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
-        for (String folderName : parametresFileService.getFoldersName(cheminRacine + chemin)) {
+        initPath();
+        for (String folderName : parametresFileService.getFoldersName( chemin)) {
            if(folderName.equals(name))
                 return true;
         }
@@ -170,5 +177,65 @@ public class FilmService {
         parametresFileService.sauvegardeSql("films.sql", sqlQueries);
 
     }
+
+    @SuppressWarnings("unchecked")
+    public void updateInfos(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> filmsConfig = (Map<String,Object>)config.get("films");
+        List<Film> films = new ArrayList<>();
+        boolean isUpdated = (boolean) filmsConfig.get("isUpdated");
+       List<Film> filmsByTitres = configurationService.getFilmsByTitres(filmsConfig);
+        if(isUpdated){
+            if(filmsByTitres.size()>0)
+                films = filmsByTitres;
+            else
+                films = configurationService.getFilmsFromJson();
+
+            films.forEach(film->{
+                Film f = getFilm(film.getIdFilm()).get();
+
+                if(f!=null){
+                    // f.setTitre(film.getTitre());
+                    if(!f.getTitre().equals(film.getTitre())){
+                        configurationService.renameFolderByContenu(f.getTitre(), film.getTitre(), "film");
+                        f.setTitre(film.getTitre());
+                    }
+
+                    f.setAnnee(film.getAnnee());
+                    f.setCast(film.getCast());
+                    f.setCode(film.getCode());
+                    f.setDescriptionFilm(film.getDescriptionFilm());
+                    f.setGenre(film.getGenre());
+                    f.setTemps(film.getTemps());
+                    f.setPays(film.getPays());
+                   
+                    String imageName = parametresFileService.getImageNameFromFile(chemin, f.getTitre());
+                    String fichierVideoName = parametresFileService.getVideoNameFromFile(chemin, f.getTitre());
+
+                    StreamFile  imageCover = streamFileService.getStreamFileUpdated(
+                        f.getTitre(),imageName, "image", "film", f.getImageCover());
+                    
+                    StreamFile fichierVideo = streamFileService.getStreamFileUpdated(
+                        f.getTitre(),fichierVideoName, "video", "film", f.getFichierVideo());
+
+                    f.setImageCover(imageCover);
+                    f.setFichierVideo(fichierVideo);
+
+                    save(f);
+
+                    filmsConfig.put("isUpdated",false);
+
+                    config.put("films",filmsConfig);
+
+                    configurationService.setConfig(config);
+
+                }
+            });
+        }
+
+    }
+
+   
+
 
 }

@@ -8,7 +8,7 @@ annee=2022 where titre='From';
 
 update series set description_serie='A présent étudiante à la singulière Nevermore Academy, Wednesday Addams tente de s\'adapter auprès des autres élèves tout en enquêtant à la suite d\'une série de meurtres qui terrorise la ville...',
 genre='Comédie, Fantastique, Thriller', pays='U.S.A',
-realisateur='Alfred Gough, Miles Millar',temps='45min', cast=' Jenna Ortega, Gwendoline Christie, Riki Lindhome', annee=2022 where titre='Mercredi';
+realisateur='Alfred Gough, Miles Millar',temps='45min', cast='Jenna Ortega, Gwendoline Christie, Riki Lindhome', annee=2022 where titre='Mercredi';
 
 
 

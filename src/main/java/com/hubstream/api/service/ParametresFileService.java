@@ -119,4 +119,29 @@ public class ParametresFileService {
         return url + "?code=" + code;
     }
 
+
+    public String getImageNameFromFile(String chemin,String name){
+        List<String> liste = getFilesName( chemin + "/" + name);
+
+        List<String> extensionImages = new ArrayList<>();
+
+        extensionImages.add("jpg");
+        extensionImages.add("jpeg");
+        extensionImages.add("png");
+        extensionImages.add("webp");
+
+        return getFileNameByExtension(liste, extensionImages);
+    }
+
+    public String getVideoNameFromFile(String chemin,String name){
+        List<String> liste = getFilesName( chemin + "/" + name);
+
+        List<String> extensionVideos = new ArrayList<>();
+        
+        extensionVideos.add("mp4");
+        extensionVideos.add("webm");
+
+        return getFileNameByExtension(liste,extensionVideos);
+    }
+
 }

@@ -14,9 +14,13 @@ public class StreamFile {
 
     private String name;
 
-    private String type;
+    private String typeFile;
+
+    private String typeContenu;
     
     @Column(name="file_path")
     private String filePath;
+
+
 
 }

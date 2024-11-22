@@ -1,8 +1,9 @@
 package com.hubstream.api.service;
 
 import java.io.IOException;
-
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,11 @@ public class StreamFileService {
 
     @Autowired
     ParametresFileService parametresFileService;
+
+    @Autowired
+    ConfigurationService configurationService;
+
+    String cheminRacine = "";
 
     public Optional<StreamFile> getStreamFile(int id) {
         return streamFileRepository.findById(id);
@@ -68,7 +74,46 @@ public class StreamFileService {
     public byte[] downloadFileFromFileSystem(int idFile) throws IOException {
         Optional<StreamFile> streamFile = getStreamFile(idFile);
         DownloadService downloadService = new DownloadService();
-        String cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-        return downloadService.downloadFromFileDataSystem(cheminRacine + streamFile.get().getFilePath());
+        String chemin = "";
+        String typeContenu = streamFile.get()!=null?streamFile.get().getTypeContenu():"";
+        if(typeContenu!=""){
+            chemin = getCheminByTypeContenu(typeContenu);
+            return downloadService.downloadFromFileDataSystem(chemin +"/"+ streamFile.get().getFilePath());
+        }
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public String getCheminByTypeContenu(String typeContenu){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> parametresFileConfig =(HashMap<String,Object>) config.get("parametresFile");
+        String chemin = "";
+
+        switch (typeContenu) {
+            case "film":
+                chemin = (String) parametresFileConfig.get("folderFilms");
+            break;
+            case "serie":
+                chemin = (String) parametresFileConfig.get("folderSeries");
+            break;
+            case "anime":
+                chemin = (String) parametresFileConfig.get("folderAnimes");
+            break;
+        
+            default:
+            break;
+        }
+        
+        return chemin;
+    }
+
+    public StreamFile getStreamFileUpdated(String name,String fileName,String typeFile,String typeContenu,StreamFile streamFile){
+        streamFile.setName(fileName);
+        streamFile.setTypeFile(typeFile);
+        streamFile.setTypeContenu(typeContenu);
+        streamFile.setFilePath(name + "/" + fileName);
+
+        return streamFile;
     }
 }

@@ -2,7 +2,9 @@ package com.hubstream.api.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,8 +35,15 @@ public class AnimeService {
     @Autowired
     EpisodeService episodeService;
 
+    @Autowired
+    ConfigurationService configurationService;
+
+    @Autowired
+    StreamFileService streamFileService;
+
     String chemin = "";
-    String cheminRacine = "";
+    
+
 
     public Optional<Anime> getAnime(final int idAnime) {
         return animeRepository.findById(idAnime);
@@ -70,10 +79,8 @@ public class AnimeService {
     }
 
     public boolean isExistInLocal(String name){
-        String chemin = parametresFileService.getParametresFiles().get(0).getFolderAnimes();
-        String cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
-        for (String folderName : parametresFileService.getFoldersName(cheminRacine + chemin)) {
+        initPath();
+        for (String folderName : parametresFileService.getFoldersName( chemin)) {
            if(folderName.equals(name))
                 return true;
         }
@@ -84,27 +91,17 @@ public class AnimeService {
 
 
     public Anime saveAnime(String name) {
-        chemin = parametresFileService.getParametresFiles().get(0).getFolderAnimes();
-        cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
+        initPath();
         if (!exist(name)) {
             Anime anime = new Anime();
             StreamFile imageCover = new StreamFile();
 
-            List<String> liste = parametresFileService.getFilesName(cheminRacine + chemin + "/" + name);
-
-            List<String> extensionImages = new ArrayList<>();
-
-            extensionImages.add("jpg");
-            extensionImages.add("jpeg");
-            extensionImages.add("png");
-            extensionImages.add("webp");
-
-            String imageName = parametresFileService.getFileNameByExtension(liste, extensionImages);
+            String imageName = parametresFileService.getImageNameFromFile(chemin, name);
 
             imageCover.setName(imageName);
-            imageCover.setType("image");
-            imageCover.setFilePath(chemin + "/" + name + "/" + imageName);
+            imageCover.setTypeFile("image");
+            imageCover.setTypeContenu("anime");
+            imageCover.setFilePath( name + "/" + imageName);
 
             anime.setImageCover(imageCover);
 
@@ -115,39 +112,47 @@ public class AnimeService {
             anime.setDescriptionAnime("Description");
             anime.setAuteur("auteur");
             anime.setTemps("Temps");
-            return save(anime);
+
+            List<Anime> animes = configurationService.getAnimesFromJson();
+            
+            anime = save(anime);
+
+            animes.add(anime);
+
+            configurationService.setAnimesToJson(animes);
+
+            return anime;
         }
         return null;
 
     }
 
     public void updateAnimes() {
-        chemin = parametresFileService.getParametresFiles().get(0).getFolderAnimes();
-        cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-        for (String name : parametresFileService.getFoldersName(cheminRacine + chemin)) {
+        initPath();
+        for (String name : parametresFileService.getFoldersName( chemin)) {
             saveAnime(name);
         }
+
+        updateSaisonInAnimes();
     }
 
     public void updateSaisonInAnimes() {
-        chemin = parametresFileService.getParametresFiles().get(0).getFolderAnimes();
-        cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
+        initPath();
         for (Anime a : getAnimes()) {
-            for (String n : parametresFileService.getFoldersName(cheminRacine + chemin + "/" + a.getTitre())) {
+            for (String n : parametresFileService.getFoldersName( chemin + "/" + a.getTitre())) {
                 saisonService.saveSaison(n, null, a);
             }
         }
+
+        updateEpisodeInAnimes();
     }
 
     public void updateEpisodeInAnimes() {
-        chemin = parametresFileService.getParametresFiles().get(0).getFolderAnimes();
-        cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
+        initPath();
         for (Anime a : getAnimes()) {
-            for (Saison sa : a.getSaisons()) {
+            for (Saison sa : saisonService.getSaisons(a)) {
                 for (String n : parametresFileService
-                        .getFilesName(cheminRacine + chemin + "/" + a.getTitre() + "/" + sa.getTitre())) {
+                        .getFilesName(chemin + "/" + a.getTitre() + "/" + sa.getTitre())) {
                     episodeService.saveEpisode(n, sa);
                 }
             }
@@ -207,6 +212,62 @@ public class AnimeService {
 
         parametresFileService.sauvegardeSql("animes.sql", sqlQueries);
 
+    }
+
+    @SuppressWarnings("unchecked")
+    public void updateInfos(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> animesConfig = (Map<String,Object>)config.get("animes");
+        List<Anime> animes = new ArrayList<>();
+        boolean isUpdated = (boolean) animesConfig.get("isUpdated");
+        List<Anime> animesByTitres = configurationService.getAnimesByTitres(animesConfig);
+        if(isUpdated){
+            if(animesByTitres.size()>0)
+                animes = animesByTitres;
+            else
+                animes = configurationService.getAnimesFromJson();
+
+            animes.forEach(anime->{
+                Anime a = getAnime(anime.getIdAnime()).get();
+
+                if(a!=null){
+                    if(!a.getTitre().equals(anime.getTitre())){
+                        configurationService.renameFolderByContenu(a.getTitre(), anime.getTitre(), "anime");
+                        a.setTitre(anime.getTitre());
+                    }
+                    a.setAnnee(anime.getAnnee());
+                    a.setAuteur(anime.getAuteur());
+                    a.setDescriptionAnime(anime.getDescriptionAnime());
+                    a.setGenre(anime.getGenre());
+                    a.setPays(anime.getPays());
+                    a.setTemps(anime.getTemps());
+                   
+                    String imageName = parametresFileService.getImageNameFromFile(chemin, a.getTitre());
+                                        
+                    StreamFile  imageCover = streamFileService.getStreamFileUpdated(
+                        a.getTitre(),imageName, "image", "anime", a.getImageCover());
+
+                    a.setImageCover(imageCover);
+
+                    save(a);
+
+                    animesConfig.put("isUpdated",false);
+
+                    config.put("animes",animesConfig);
+
+                    configurationService.setConfig(config);
+                    
+                }
+            });
+        }
+
+    }
+
+    @SuppressWarnings("unchecked")
+    public void initPath(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> parametresFileConfig =(HashMap<String,Object>) config.get("parametresFile");
+        chemin = (String) parametresFileConfig.get("folderAnimes");
     }
 
 }

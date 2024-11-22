@@ -1,6 +1,8 @@
 package com.hubstream.api.service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.*;
 import java.util.Optional;
 
@@ -20,9 +22,22 @@ public class EpisodeService {
     @Autowired
     ParametresFileService parametresFileService;
 
+    @Autowired
+    ConfigurationService configurationService;
+
     String cheminSerie = "";
     String cheminAnime = "";
-    String cheminRacine = "";
+    
+
+    @SuppressWarnings("unchecked")
+    public void initPath(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> parametresFileConfig =(HashMap<String,Object>) config.get("parametresFile");
+        cheminSerie = (String) parametresFileConfig.get("folderSeries");
+        cheminAnime = (String) parametresFileConfig.get("folderAnimes");
+       
+    }
+
 
     public Optional<Episode> getEpisode(final int idEpisode) {
         return episodeRepository.findById(idEpisode);
@@ -30,6 +45,10 @@ public class EpisodeService {
 
     public List<Episode> getEpisodes() {
         return episodeRepository.findAll();
+    }
+
+    public List<Episode> getEpisodes(Saison saison){
+        return episodeRepository.findAllBySaison(saison);
     }
 
     public void deleteEpisode(final int idEpisode) {
@@ -41,12 +60,12 @@ public class EpisodeService {
         return episodeSaved;
     }
 
+    
     public void saveEpisode(String name, Saison saison) {
-        cheminSerie = parametresFileService.getParametresFiles().get(0).getFolderSeries();
-        cheminAnime = parametresFileService.getParametresFiles().get(0).getFolderAnimes();
-        // cheminRacine =
+        initPath();
+                // cheminRacine =
         // parametresFileService.getParametresFiles().get(0).getFolderRacine();
-        System.out.println("name: " + name);
+        
 
         if (!exist(name, saison)) {
             Episode episode = new Episode();
@@ -57,17 +76,22 @@ public class EpisodeService {
 
             StreamFile fichierVideo = new StreamFile();
             fichierVideo.setName(name);
-            fichierVideo.setType("video");
+            fichierVideo.setTypeFile("video");
+            
 
-            if (saison.getSerie() != null)
+            if (saison.getSerie() != null){
+                fichierVideo.setTypeContenu("serie");
                 fichierVideo
-                        .setFilePath(cheminSerie + "/" + saison.getSerie().getTitre() + "/" + saison.getTitre() + "/"
+                        .setFilePath(saison.getSerie().getTitre() + "/" + saison.getTitre() + "/"
                                 + name);
+            }
 
-            if (saison.getAnime() != null)
+            if (saison.getAnime() != null){
+                fichierVideo.setTypeContenu("anime");
                 fichierVideo
-                        .setFilePath(cheminAnime + "/" + saison.getAnime().getTitre() + "/" + saison.getTitre() + "/"
+                        .setFilePath(saison.getAnime().getTitre() + "/" + saison.getTitre() + "/"
                                 + name);
+            }
 
             episode.setFichierVideo(fichierVideo);
             episode.setSaison(saison);
@@ -77,7 +101,7 @@ public class EpisodeService {
     }
 
     public boolean exist(String name, Saison saison) {
-        for (Episode e : saison.getEpisodes()) {
+        for (Episode e : getEpisodes(saison)) {
             if (e.getFichierVideo().getName().equals(name))
                 return true;
         }

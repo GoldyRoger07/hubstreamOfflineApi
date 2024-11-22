@@ -3,7 +3,9 @@ package com.hubstream.api.controller;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
@@ -25,6 +27,7 @@ import com.hubstream.api.model.AnimesComparator;
 import com.hubstream.api.model.StreamFile;
 import com.hubstream.api.model.TestResponse;
 import com.hubstream.api.service.AnimeService;
+import com.hubstream.api.service.ConfigurationService;
 import com.hubstream.api.service.ParametresFileService;
 import com.hubstream.api.service.ParametresIpServices;
 import com.hubstream.api.service.StreamFileService;
@@ -46,10 +49,23 @@ public class AnimeController {
     ParametresIpServices parametresIpServices;
 
     @Autowired
+    ConfigurationService configurationService;
+
+
+    @Autowired
     RestTemplate restTemplate;
 
     String baseUrlApiOnline = "http://192.168.0.178:9001/api.online.hubstream.com";
+    
+    String cheminRacine = "";
 
+    @SuppressWarnings("unchecked")
+    public void initPath(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> parametresFileConfig =(HashMap<String,Object>) config.get("parametresFile");
+        
+        cheminRacine = (String) parametresFileConfig.get("folderSeries");
+    }   
 
     @GetMapping("/animes/aleatoire")
     public List<Anime> getAleatoireAnimes() {
@@ -87,26 +103,24 @@ public class AnimeController {
         return "{\"status\":\"reussi\"}";
     }
 
+    @SuppressWarnings("null")
     @GetMapping("/download/anime-episode/{videoName}/compte/{idCompte}")
     public ResponseEntity<FileSystemResource> downloadSerieEpisode(@PathVariable("videoName") String videoName,
             @PathVariable("idCompte") String idCompte) {
 
-            baseUrlApiOnline = parametresIpServices.getParamIps().get(0).getBaseUrlApiOnline();
-            
+                       
             StreamFile streamFile = streamFileService.getStreamFile(videoName).get();
-            String cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
+            String chemin = "";
+            String typeContenu = streamFile!=null?streamFile.getTypeContenu():"";
+            if(typeContenu!=""){
+                chemin = streamFileService.getCheminByTypeContenu(typeContenu);
             
-            String url = baseUrlApiOnline+"/activerPlans/test/compte/"+idCompte+"/Anime";
-            ResponseEntity<TestResponse> responseEntity = restTemplate.getForEntity(url, TestResponse.class);
-            TestResponse testResponse = responseEntity.getBody();
-            
-            if (testResponse!=null && testResponse.isPass()){
-                Path episodePath = Paths.get(cheminRacine +
-                        streamFile.getFilePath());
+                Path episodePath = Paths.get(chemin +"/"+
+                            streamFile.getFilePath());
 
                 return ResponseEntity.ok()
-                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                        .body(new FileSystemResource(episodePath));
+                            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                            .body(new FileSystemResource(episodePath));
 
             }
         

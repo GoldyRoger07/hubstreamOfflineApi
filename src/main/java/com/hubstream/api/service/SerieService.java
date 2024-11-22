@@ -2,7 +2,9 @@ package com.hubstream.api.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,8 +36,22 @@ public class SerieService {
     @Autowired
     EpisodeService episodeService;
 
+    @Autowired
+    ConfigurationService configurationService;
+
+    @Autowired
+    StreamFileService streamFileService;
+
     String chemin = "";
-    String cheminRacine = "";
+    
+
+    @SuppressWarnings("unchecked")
+    public void initPath(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> parametresFileConfig =(HashMap<String,Object>) config.get("parametresFile");
+        chemin = (String) parametresFileConfig.get("folderSeries");
+        
+    }
 
     public Optional<Serie> getSerie(final int idSerie) {
         return serieRepository.findById(idSerie);
@@ -71,84 +87,99 @@ public class SerieService {
     }
 
     public boolean isExistInLocal(String name){
-        String chemin = parametresFileService.getParametresFiles().get(0).getFolderSeries();
-        String cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
-        for (String folderName : parametresFileService.getFoldersName(cheminRacine + chemin)) {
-           if(folderName.equals(name))
+         initPath();
+        for (String folderName : parametresFileService.getFoldersName(  chemin)) {
+           
+            if(folderName.equals(name))
                 return true;
+            
         }
 
         return false;
     }
 
     public Serie saveSerie(String name) {
-        chemin = parametresFileService.getParametresFiles().get(0).getFolderSeries();
-        cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
+        initPath();
         if (!exist(name)) {
             Serie serie = new Serie();
             StreamFile imageCover = new StreamFile();
 
-            List<String> liste = parametresFileService.getFilesName(cheminRacine + chemin + "/" + name);
+            String imageName = parametresFileService.getImageNameFromFile( chemin,name);
 
-            List<String> extensionImages = new ArrayList<>();
-
-            extensionImages.add("jpg");
-            extensionImages.add("jpeg");
-            extensionImages.add("png");
-            extensionImages.add("webp");
-
-            String imageName = parametresFileService.getFileNameByExtension(liste, extensionImages);
-
-            imageCover.setName(imageName);
-            imageCover.setType("image");
-            imageCover.setFilePath(chemin + "/" + name + "/" + imageName);
+            imageCover = streamFileService.getStreamFileUpdated(
+                name,imageName, "image", "serie", imageCover);
 
             serie.setImageCover(imageCover);
 
             serie.setTitre(name);
             serie.setAnnee(2000);
-            serie.setGenre("Genre");
-            serie.setPays("Pays");
-            serie.setCast("Cast");
-            serie.setDescriptionSerie("Description");
-            serie.setRealisateur("Realisateur");
-            serie.setTemps("Temps");
-            return save(serie);
+            serie.setGenre("");
+            serie.setPays("");
+            serie.setCast("");
+            serie.setDescriptionSerie("D");
+            serie.setRealisateur("");
+            serie.setTemps("");
+
+            List<Serie> series = configurationService.getSeriesFromJson();
+            
+            serie = save(serie);
+                
+            serie.setSaisons(new ArrayList<>());
+            series.add(serie);
+                
+            configurationService.setSeriesToJson(series);
+            
+            
+            return serie;
         }
         return null;
     }
 
+    
     public void updateSeries() {
-        chemin = parametresFileService.getParametresFiles().get(0).getFolderSeries();
-        cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-        for (String name : parametresFileService.getFoldersName(cheminRacine + chemin)) {
+        initPath();
+        
+        for (String name : parametresFileService.getFoldersName( chemin)) {
+            
             saveSerie(name);
         }
+
+        updateSaisonInSeries();
     }
 
+   
     public void updateSaisonInSeries() {
-        chemin = parametresFileService.getParametresFiles().get(0).getFolderSeries();
-        cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-        for (Serie s : getSeries()) {
-            for (String n : parametresFileService.getFoldersName(cheminRacine + chemin + "/" + s.getTitre())) {
-                saisonService.saveSaison(n, s, null);
+        try {
+            initPath();
+            for (Serie s : getSeries()) {
+                for (String n : parametresFileService.getFoldersName(  chemin + "/" + s.getTitre())) {
+                    saisonService.saveSaison(n, s, null);
+                }
             }
+        } catch (Exception e) {
+           e.printStackTrace();
         }
+
+       updateEpisodeInSeries();
     }
 
     public void updateEpisodeInSeries() {
-        chemin = parametresFileService.getParametresFiles().get(0).getFolderSeries();
-        cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-
+        try {
+            initPath();
+       
         for (Serie s : getSeries()) {
-            for (Saison sa : s.getSaisons()) {
+           
+            for (Saison sa : saisonService.getSaisons(s)) {
+               
                 for (String n : parametresFileService
-                        .getFilesName(cheminRacine + chemin + "/" + s.getTitre() + "/" + sa.getTitre())) {
-                    episodeService.saveEpisode(n, sa);
+                        .getFilesName( chemin + "/" + s.getTitre() + "/" + sa.getTitre())) {
+                            
+                            episodeService.saveEpisode(n, sa);
                 }
             }
+        }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -188,6 +219,61 @@ public class SerieService {
         return finaleListe;
 
     }
+
+    public List<Serie> reloadSeries(){
+        this.updateSeries();
+        return getSeries();
+    }
+
+    @SuppressWarnings("unchecked")
+    public void updateInfos(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> seriesConfig = (Map<String,Object>)config.get("series");
+        List<Serie> series = new ArrayList<>();
+        boolean isUpdated = (boolean) seriesConfig.get("isUpdated");
+        List<Serie> seriesByTitres = configurationService.getSeriesByTitres(seriesConfig);
+        if(isUpdated){
+            if(seriesByTitres.size()>0)
+                series = seriesByTitres;
+            else
+                series = configurationService.getSeriesFromJson();
+           
+            series.forEach(serie->{
+                Serie s = getSerie(serie.getIdSerie()).get();
+
+                if(s!=null){
+                    if(!s.getTitre().equals(serie.getTitre())){
+                        configurationService.renameFolderByContenu(s.getTitre(), serie.getTitre(), "serie");
+                        s.setTitre(serie.getTitre());
+                    }
+                    s.setAnnee(serie.getAnnee());
+                    s.setCast(serie.getCast());
+                    s.setDescriptionSerie(serie.getDescriptionSerie());
+                    s.setRealisateur(serie.getRealisateur());
+                    s.setPays(serie.getPays());
+                    s.setGenre(serie.getGenre());
+                    s.setTemps(serie.getTemps());
+
+                    String imageName = parametresFileService.getImageNameFromFile(chemin, s.getTitre());
+                                        
+                    StreamFile  imageCover = streamFileService.getStreamFileUpdated(
+                        s.getTitre(),imageName, "image", "serie", s.getImageCover());
+                    
+                    s.setImageCover(imageCover);
+                    
+                    save(s);
+
+                    seriesConfig.put("isUpdated", false);
+
+                    config.put("series", seriesConfig);
+
+                    configurationService.setConfig(config);
+                }
+            });
+        }
+    }
+
+    
 
     public void sauvegardeSerieSql() {
         List<Serie> series = getSeries();

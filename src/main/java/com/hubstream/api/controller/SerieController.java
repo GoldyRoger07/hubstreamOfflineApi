@@ -3,7 +3,9 @@ package com.hubstream.api.controller;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
@@ -24,6 +26,7 @@ import com.hubstream.api.model.Serie;
 import com.hubstream.api.model.SeriesComparator;
 import com.hubstream.api.model.StreamFile;
 import com.hubstream.api.model.TestResponse;
+import com.hubstream.api.service.ConfigurationService;
 import com.hubstream.api.service.ParametresFileService;
 import com.hubstream.api.service.ParametresIpServices;
 import com.hubstream.api.service.SerieService;
@@ -45,10 +48,22 @@ public class SerieController {
     ParametresIpServices parametresIpServices;
 
     @Autowired
+    ConfigurationService configurationService;
+
+    @Autowired
     RestTemplate restTemplate;
 
     String baseUrlApiOnline = "http://192.168.0.178:9001/api.online.hubstream.com";
 
+    String cheminRacine = "";
+
+    @SuppressWarnings("unchecked")
+    public void initPath(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> parametresFileConfig =(HashMap<String,Object>) config.get("parametresFile");
+        
+        cheminRacine = (String) parametresFileConfig.get("folderSeries");
+    }
 
     @GetMapping("/series/aleatoire")
     public List<Serie> getAleatoireSeries() {
@@ -86,22 +101,25 @@ public class SerieController {
         return "{\"status\":\"reussi\"}";
     }
 
+    @SuppressWarnings("null")
     @GetMapping("/download/serie-episode/{videoName}/compte/{idCompte}")
     public ResponseEntity<FileSystemResource> downloadSerieEpisode(@PathVariable("videoName") String videoName,
             @PathVariable("idCompte") String idCompte) {
-            baseUrlApiOnline = parametresIpServices.getParamIps().get(0).getBaseUrlApiOnline();
+            initPath();
             StreamFile streamFile = streamFileService.getStreamFile(videoName).get();
-            String cheminRacine = parametresFileService.getParametresFiles().get(0).getFolderRacine();
-            String url = baseUrlApiOnline+"/activerPlans/test/compte/"+idCompte+"/Serie";
-            ResponseEntity<TestResponse> responseEntity = restTemplate.getForEntity(url, TestResponse.class);
-            TestResponse testResponse = responseEntity.getBody();
-            if (testResponse!=null && testResponse.isPass()){
-                Path episodePath = Paths.get(cheminRacine +
-                        streamFile.getFilePath());
+            String chemin = "";
+            String typeContenu = streamFile!=null?streamFile.getTypeContenu():"";
+            if(typeContenu!=""){
+                chemin = streamFileService.getCheminByTypeContenu(typeContenu);
+            
+                Path episodePath = Paths.get(chemin +"/"+
+                streamFile.getFilePath());
 
                 return ResponseEntity.ok()
-                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                        .body(new FileSystemResource(episodePath));
+                            .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                            .body(new FileSystemResource(episodePath));
+
+                
 
             }
 
@@ -111,10 +129,8 @@ public class SerieController {
     @GetMapping("/series/reload")
     @ResponseBody
     public List<Serie> getListeSeries() {
-        serieService.updateSeries();
-        serieService.updateSaisonInSeries();
-        serieService.updateEpisodeInSeries();
-        return serieService.getSeries();
+        
+        return serieService.reloadSeries();
     }
 
     @GetMapping("/series/printScriptSql")
