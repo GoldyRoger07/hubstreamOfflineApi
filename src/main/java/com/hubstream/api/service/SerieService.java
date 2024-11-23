@@ -169,7 +169,7 @@ public class SerieService {
     }
 
     public void updateEpisodeInSeries() {
-        try {
+        
             initPath();
        
         for (Serie s : getSeries()) {
@@ -178,14 +178,12 @@ public class SerieService {
                
                 for (String n : parametresFileService
                         .getFilesName( chemin + "/" + s.getTitre() + "/" + sa.getTitre())) {
-                            
-                            episodeService.saveEpisode(n, sa);
+                           if(!n.equals("Thumbs.db"))
+                                episodeService.saveEpisode(n, sa);
                 }
             }
         }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+       
     }
 
     public boolean exist(String name) {
