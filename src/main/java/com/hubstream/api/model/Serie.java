@@ -14,6 +14,7 @@ public class Serie {
    @GeneratedValue(strategy= GenerationType.IDENTITY)
    private int idSerie;
 
+   @Column(unique = true)
    private String titre;
 
    @Column(columnDefinition = "TEXT")

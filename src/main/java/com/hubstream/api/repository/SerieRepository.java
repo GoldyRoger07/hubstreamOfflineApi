@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.hubstream.api.model.Serie;
 
 public interface SerieRepository extends JpaRepository<Serie,Integer> {
-    
+    public Serie findByTitre(String titre);
 }

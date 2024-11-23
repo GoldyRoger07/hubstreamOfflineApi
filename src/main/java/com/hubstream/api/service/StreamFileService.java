@@ -116,4 +116,16 @@ public class StreamFileService {
 
         return streamFile;
     }
+
+    public StreamFile updateFilePath(StreamFile streamFile,String path){
+        
+      String filePath = streamFile.getFilePath();
+      String[] filePathSplited = filePath.split("/");
+      filePathSplited[0] = path;
+      String newFilePath = String.join("/", filePathSplited);
+      
+      streamFile.setFilePath(newFilePath);
+      
+      return streamFile;
+    }
 }

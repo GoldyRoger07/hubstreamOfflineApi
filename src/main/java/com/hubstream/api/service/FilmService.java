@@ -47,6 +47,10 @@ public class FilmService {
         return filmRepository.findById(idFilm);
     }
 
+    public Film getFilmByTitre(String titre){
+        return filmRepository.findByTitre(titre);
+    }
+
     public Film getFilm(final String code) {
 
         for (Film f : getFilms()) {
@@ -182,25 +186,18 @@ public class FilmService {
     public void updateInfos(){
         Map<String,Object> config = configurationService.getConfig();
         Map<String,Object> filmsConfig = (Map<String,Object>)config.get("films");
-        List<Film> films = new ArrayList<>();
+        
         boolean isUpdated = (boolean) filmsConfig.get("isUpdated");
-       List<Film> filmsByTitres = configurationService.getFilmsByTitres(filmsConfig);
+       
         if(isUpdated){
-            if(filmsByTitres.size()>0)
-                films = filmsByTitres;
-            else
-                films = configurationService.getFilmsFromJson();
+
+            List<Film>  films = configurationService.getFilmsFromJson();
 
             films.forEach(film->{
-                Film f = getFilm(film.getIdFilm()).get();
+                Film f = getFilm(film.getTitre());
 
                 if(f!=null){
-                    // f.setTitre(film.getTitre());
-                    if(!f.getTitre().equals(film.getTitre())){
-                        configurationService.renameFolderByContenu(f.getTitre(), film.getTitre(), "film");
-                        f.setTitre(film.getTitre());
-                    }
-
+                
                     f.setAnnee(film.getAnnee());
                     f.setCast(film.getCast());
                     f.setCode(film.getCode());
@@ -235,7 +232,53 @@ public class FilmService {
 
     }
 
-   
 
+    @SuppressWarnings("unchecked")
+    public void updateTitre(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> filmsConfig = (Map<String,Object>)config.get("films");
+        Map<String,Object> updateTitreConfig = (Map<String,Object>)filmsConfig.get("updateTitre");
+
+        boolean isUpdated = (boolean) updateTitreConfig.get("isUpdated");
+
+        if(isUpdated){
+            String oldTitre = (String) updateTitreConfig.get("oldTitre");
+            String newTitre = (String) updateTitreConfig.get("newTitre");
+            Film filmToUpdateTitre = getFilm(oldTitre);
+
+            if(filmToUpdateTitre!=null && newTitre!=""){
+                
+                StreamFile imageCover = streamFileService.updateFilePath(filmToUpdateTitre.getImageCover(), newTitre);
+                StreamFile fichierVideo = streamFileService.updateFilePath(filmToUpdateTitre.getFichierVideo(), newTitre);
+
+                filmToUpdateTitre.setImageCover(imageCover);
+                filmToUpdateTitre.setFichierVideo(fichierVideo);
+
+                filmToUpdateTitre.setTitre(newTitre);
+
+                List<Film> films = configurationService.getFilmsFromJson();
+
+                films.forEach(film->{
+                    if(film.getTitre().equals(oldTitre)){
+                        film.setTitre(newTitre);
+                        film.setImageCover(imageCover);
+                        film.setFichierVideo(fichierVideo);
+                    }
+                });
+
+                configurationService.setFilmsToJson(films);
+
+                save(filmToUpdateTitre);
+                configurationService.renameFolderByContenu(oldTitre, newTitre, "film");
+
+            }
+
+            updateTitreConfig.put("isUpdated",false);
+            filmsConfig.put("updateTitre",updateTitreConfig);
+            config.put("films",filmsConfig);
+            configurationService.setConfig(config);
+
+        }
+    }
 
 }

@@ -67,23 +67,27 @@ public class ConfigurationService {
             Map<String,Object> animes = new HashMap<>();
             Map<String,Object> task = new HashMap<>();
             Map<String,Object> host = new HashMap<>();
+            Map<String,Object> updateTitre = new HashMap<>();
 
-            parametresFile.put("isUpdated", false);
             parametresFile.put("folderRacine", "C:/Hubstream");
             parametresFile.put("folderFilms", "C:/Hubstream/Films");
             parametresFile.put("folderSeries", "C:/Hubstream/Series");
             parametresFile.put("folderAnimes", "C:/Hubstream/Animes");
 
+            updateTitre.put("isUpdated",false);
+            updateTitre.put("oldTitre","");
+            updateTitre.put("newTitre","");
+            
             films.put("isUpdated",false);
-            films.put("titres",new ArrayList<>());
+            films.put("updateTitre",updateTitre);
             films.put("path","films.json");
 
             series.put("isUpdated",false);
-            series.put("titres",new ArrayList<>());
+            series.put("updateTitre",updateTitre);
             series.put("path","series.json");
 
             animes.put("isUpdated",false);
-            animes.put("titres",new ArrayList<>());
+            animes.put("updateTitre",updateTitre);
             animes.put("path","animes.json");
 
             task.put("interval",600000);
@@ -92,9 +96,9 @@ public class ConfigurationService {
             host.put("hubstreamOnlineApi","http://192.168.0.178:9001/api.online.hubstream.com");
             host.put("hubstreamOfflineApi","http://192.168.0.178:9002/api.offline.hubstream.com");
             host.put("hubstreamVideoServer","http://192.168.0.178:8080");
+            
 
             config.put("appName","Hubstream");
-            config.put("hasUpdate", false);
             config.put("parametresFile",parametresFile);
             config.put("films",films);
             config.put("series",series);

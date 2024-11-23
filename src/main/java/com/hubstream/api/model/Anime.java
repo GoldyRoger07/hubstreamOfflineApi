@@ -14,6 +14,8 @@ public class Anime {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int idAnime;
+
+    @Column(unique = true)
     private String titre;
 
     @Column(columnDefinition = "TEXT")

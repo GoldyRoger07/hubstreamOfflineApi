@@ -57,6 +57,7 @@ public class SerieService {
         return serieRepository.findById(idSerie);
     }
 
+
     public List<Serie> getSeries() {
         return getOnlyPresentSeries(serieRepository.findAll());
     }
@@ -66,6 +67,10 @@ public class SerieService {
         Page<Serie> seriePage = serieRepository.findAll(pageable);
 
         return getOnlyPresentSeries(seriePage.getContent());
+    }
+
+    public Serie getSerie(String titre){
+        return serieRepository.findByTitre(titre);
     }
 
     public void deleteSerie(final int idSerie) {
@@ -229,23 +234,16 @@ public class SerieService {
     public void updateInfos(){
         Map<String,Object> config = configurationService.getConfig();
         Map<String,Object> seriesConfig = (Map<String,Object>)config.get("series");
-        List<Serie> series = new ArrayList<>();
         boolean isUpdated = (boolean) seriesConfig.get("isUpdated");
-        List<Serie> seriesByTitres = configurationService.getSeriesByTitres(seriesConfig);
+        
         if(isUpdated){
-            if(seriesByTitres.size()>0)
-                series = seriesByTitres;
-            else
-                series = configurationService.getSeriesFromJson();
+            
+            List<Serie> series = configurationService.getSeriesFromJson();
            
             series.forEach(serie->{
-                Serie s = getSerie(serie.getIdSerie()).get();
+                Serie s = getSerie(serie.getTitre());
 
                 if(s!=null){
-                    if(!s.getTitre().equals(serie.getTitre())){
-                        configurationService.renameFolderByContenu(s.getTitre(), serie.getTitre(), "serie");
-                        s.setTitre(serie.getTitre());
-                    }
                     s.setAnnee(serie.getAnnee());
                     s.setCast(serie.getCast());
                     s.setDescriptionSerie(serie.getDescriptionSerie());
@@ -273,8 +271,6 @@ public class SerieService {
         }
     }
 
-    
-
     public void sauvegardeSerieSql() {
         List<Serie> series = getSeries();
 
@@ -294,5 +290,56 @@ public class SerieService {
         parametresFileService.sauvegardeSql("series.sql", sqlQueries);
 
     }
+
+    @SuppressWarnings("unchecked")
+    public void updateTitre(){
+        try {
+            
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> seriesConfig = (Map<String,Object>)config.get("series");
+        Map<String,Object> updateTitreConfig = (Map<String,Object>)seriesConfig.get("updateTitre");
+
+        boolean isUpdated = (boolean) updateTitreConfig.get("isUpdated");
+
+        if(isUpdated){
+            String oldTitre = (String) updateTitreConfig.get("oldTitre");
+            String newTitre = (String) updateTitreConfig.get("newTitre");
+            
+            Serie serieToUpdateTitre = getSerie(oldTitre);
+            
+            if(serieToUpdateTitre!=null && newTitre!=""){
+                
+                StreamFile imageCover = streamFileService.updateFilePath(serieToUpdateTitre.getImageCover(), newTitre);
+                serieToUpdateTitre.setImageCover(imageCover);
+                
+                List<Saison> saisons = saisonService.getSaisons(serieToUpdateTitre);
+                saisonService.updateTitreForEpisode(saisons, newTitre);
+                
+                serieToUpdateTitre.setTitre(newTitre);
+                
+                List<Serie> series = configurationService.getSeriesFromJson();
+                series.forEach(serie->{
+                    if(serie.getTitre().equals(oldTitre)){
+                        serie.setTitre(newTitre);
+                        serie.setImageCover(imageCover);
+                    }
+                });
+                configurationService.setSeriesToJson(series);
+                save(serieToUpdateTitre);
+                configurationService.renameFolderByContenu(oldTitre, newTitre, "serie");
+               
+            }
+            
+            updateTitreConfig.put("isUpdated",false);
+            seriesConfig.put("updateTitre",updateTitreConfig);
+            config.put("series",seriesConfig);
+            configurationService.setConfig(config);
+        }
+        } catch (Exception e) {
+           e.printStackTrace();
+        }
+    }
+
+   
 
 }

@@ -49,6 +49,10 @@ public class AnimeService {
         return animeRepository.findById(idAnime);
     }
 
+    public Anime getAnime(String titre){
+        return animeRepository.findByTitre(titre);
+    }
+
     public List<Anime> getAnimes() {
         return getOnlyPresentAnimes(animeRepository.findAll());
     }
@@ -218,23 +222,18 @@ public class AnimeService {
     public void updateInfos(){
         Map<String,Object> config = configurationService.getConfig();
         Map<String,Object> animesConfig = (Map<String,Object>)config.get("animes");
-        List<Anime> animes = new ArrayList<>();
+       
         boolean isUpdated = (boolean) animesConfig.get("isUpdated");
-        List<Anime> animesByTitres = configurationService.getAnimesByTitres(animesConfig);
+        
         if(isUpdated){
-            if(animesByTitres.size()>0)
-                animes = animesByTitres;
-            else
-                animes = configurationService.getAnimesFromJson();
+            
+            List<Anime> animes = configurationService.getAnimesFromJson();
 
             animes.forEach(anime->{
-                Anime a = getAnime(anime.getIdAnime()).get();
+                Anime a = getAnime(anime.getTitre());
 
                 if(a!=null){
-                    if(!a.getTitre().equals(anime.getTitre())){
-                        configurationService.renameFolderByContenu(a.getTitre(), anime.getTitre(), "anime");
-                        a.setTitre(anime.getTitre());
-                    }
+                    
                     a.setAnnee(anime.getAnnee());
                     a.setAuteur(anime.getAuteur());
                     a.setDescriptionAnime(anime.getDescriptionAnime());
@@ -269,5 +268,53 @@ public class AnimeService {
         Map<String,Object> parametresFileConfig =(HashMap<String,Object>) config.get("parametresFile");
         chemin = (String) parametresFileConfig.get("folderAnimes");
     }
+
+    @SuppressWarnings("unchecked")
+    public void updateTitre(){
+        Map<String,Object> config = configurationService.getConfig();
+        Map<String,Object> animesConfig = (Map<String,Object>)config.get("animes");
+        Map<String,Object> updateTitreConfig = (Map<String,Object>)animesConfig.get("updateTitre");
+
+        boolean isUpdated = (boolean) updateTitreConfig.get("isUpdated");
+
+        if(isUpdated){
+            String oldTitre = updateTitreConfig.get("oldTitre").toString();
+            String newTitre = updateTitreConfig.get("newTitre").toString();
+
+            Anime animeToUpdateTitre = getAnime(oldTitre);
+
+            if(animeToUpdateTitre!=null && newTitre!=null){
+                
+                
+                
+                StreamFile imageCover = streamFileService.updateFilePath(animeToUpdateTitre.getImageCover(), newTitre);
+                animeToUpdateTitre.setImageCover(imageCover);
+                
+                List<Saison> saisons = saisonService.getSaisons(animeToUpdateTitre);
+                saisonService.updateTitreForEpisode(saisons, newTitre);
+                
+                animeToUpdateTitre.setTitre(newTitre);
+
+                List<Anime> animes = configurationService.getAnimesFromJson();
+
+                animes.forEach(anime->{
+                    if(anime.getTitre().equals(oldTitre)){
+                        anime.setTitre(newTitre);
+                        anime.setImageCover(imageCover);
+                    }
+                });
+                configurationService.setAnimesToJson(animes);
+                save(animeToUpdateTitre);
+                configurationService.renameFolderByContenu(oldTitre, newTitre, "anime");
+
+            }
+
+            updateTitreConfig.put("isUpdated",false);
+            animesConfig.put("updateTitre",updateTitreConfig);
+            config.put("animes",animesConfig);
+            configurationService.setConfig(config);
+        }
+    }
+
 
 }

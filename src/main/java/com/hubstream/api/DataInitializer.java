@@ -52,18 +52,24 @@ public class DataInitializer implements ApplicationRunner{
             interval = (Integer) task.get("interval");
             delay = (Integer) task.get("delay");
         } 
-
+       
+       
         timer.scheduleAtFixedRate(new TimerTask(){
 
             @Override
             public void run() {
                 filmService.updateFilms();
                 filmService.updateInfos();
+                filmService.updateTitre();
+
                 animeService.updateAnimes();
                 animeService.updateInfos();
+                animeService.updateTitre();
+
                 serieService.reloadSeries();
                 serieService.updateInfos();
-             
+                serieService.updateTitre();
+
             }
             
         },delay,interval);

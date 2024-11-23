@@ -14,6 +14,7 @@ import com.hubstream.api.model.Anime;
 import com.hubstream.api.model.Episode;
 import com.hubstream.api.model.Saison;
 import com.hubstream.api.model.Serie;
+import com.hubstream.api.model.StreamFile;
 import com.hubstream.api.repository.SaisonRepository;
 
 @Service
@@ -24,6 +25,9 @@ public class SaisonService {
 
     @Autowired
     private EpisodeService episodeService;
+
+    @Autowired
+    private StreamFileService streamFileService;
 
 
     public Optional<Saison> getSaison(final int idSaison){
@@ -149,6 +153,19 @@ public class SaisonService {
            }
        
            return finaleListe;
+    }
+
+     public void updateTitreForEpisode(List<Saison> saisons,String newTitre){
+           
+           saisons.forEach(saison->{
+                List<Episode> episodes = episodeService.getEpisodes(saison);
+
+                episodes.forEach(episode->{
+                    StreamFile fichierVideo = streamFileService.updateFilePath(episode.getFichierVideo(),newTitre);
+                    episode.setFichierVideo(fichierVideo);
+                    episodeService.save(episode);
+                });
+           });
     }
 
     

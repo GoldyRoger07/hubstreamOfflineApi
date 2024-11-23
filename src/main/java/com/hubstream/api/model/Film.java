@@ -15,6 +15,7 @@ public class Film {
 
     private String code;
 
+    @Column(unique = true)
     private String titre;
 
     @Column(columnDefinition = "TEXT")
